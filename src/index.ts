@@ -46,7 +46,7 @@ app.get("/api/test-models", async (c) => {
 });
 
 // Generate content endpoint
-app.post("/api/ai/generate-content", async (c) => {
+app.post("/api/v1/ai/generate-content", async (c) => {
     try {
         const body = await c.req.json();
         const { prompt, context, tone, length, includeImages = true } = body;
