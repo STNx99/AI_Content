@@ -1,0 +1,19 @@
+{
+    "name": "cms-ai-service",
+    "version": "1.0.0",
+    "description": "AI Content Generation Service for CMS",
+    "type": "module",
+    "scripts": {
+        "dev": "bun run --watch src/index.ts",
+        "start": "bun run src/index.ts",
+        "build": "bun build src/index.ts --outdir ./dist --target bun"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.24.1",
+        "hono": "^4.0.0",
+        "openai": "^4.0.0"
+    },
+    "devDependencies": {
+        "bun-types": "latest"
+    }
+}
