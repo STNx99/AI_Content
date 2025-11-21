@@ -1,49 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { generateContent } from "./services/ai-generator";
+import { generateContent, generateContentStream } from "./services/ai-generator";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { stream } from "hono/streaming";
 
 const app = new Hono();
 
-// Middleware
+app.use("*", cors());
 app.use("*", logger());
-app.use(
-    "*",
-    cors({
-        origin: "*", // Update this in production to specific origins
-        credentials: true,
-    })
-);
-
-// Health check
-app.get("/health", (c) => {
-    return c.json({ status: "ok", service: "CMS AI Service" });
-});
-
-// Test API key and list models
-app.get("/api/test-models", async (c) => {
-    try {
-        const genAI = new GoogleGenerativeAI(process.env.CMS_AI_API_KEY!);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-
-        const result = await model.generateContent("Hello, respond with 'API Working'");
-        const text = result.response.text();
-
-        return c.json({
-            success: true,
-            message: "API Key is valid",
-            response: text,
-            apiKey: process.env.CMS_AI_API_KEY?.substring(0, 10) + "...",
-        });
-    } catch (error: any) {
-        return c.json({
-            success: false,
-            error: error.message,
-            apiKey: process.env.CMS_AI_API_KEY?.substring(0, 10) + "...",
-        }, 500);
-    }
-});
 
 // Generate content endpoint
 app.post("/api/v1/ai/generate-content", async (c) => {
@@ -63,13 +28,61 @@ app.post("/api/v1/ai/generate-content", async (c) => {
             includeImages,
         });
 
-        return c.json({
-            success: true,
-            content,
-            html: content,
-        });
+        return c.json({ success: true, content });
     } catch (error) {
         console.error("Error generating content:", error);
+        return c.json(
+            {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error",
+            },
+            500
+        );
+    }
+});
+
+// Streaming endpoint with Server-Sent Events
+app.post("/api/v1/ai/generate-content-stream", async (c) => {
+    try {
+        const body = await c.req.json();
+        const { prompt, context, tone, length, includeImages = true } = body;
+
+        if (!prompt) {
+            return c.json({ error: "Prompt is required" }, 400);
+        }
+
+        return stream(c, async (stream) => {
+            // Set headers for SSE
+            c.header("Content-Type", "text/event-stream");
+            c.header("Cache-Control", "no-cache");
+            c.header("Connection", "keep-alive");
+
+            try {
+                const contentGenerator = generateContentStream({
+                    prompt,
+                    context,
+                    tone: tone || "professional",
+                    length: length || "medium",
+                    includeImages,
+                });
+
+                for await (const chunk of contentGenerator) {
+                    // Send each chunk as SSE
+                    await stream.write(`data: ${JSON.stringify(chunk)}\n\n`);
+                }
+
+                // Send completion signal
+                await stream.write(`data: [DONE]\n\n`);
+            } catch (error) {
+                console.error("Streaming error:", error);
+                await stream.write(`data: ${JSON.stringify({
+                    type: 'error',
+                    error: error instanceof Error ? error.message : "Unknown error"
+                })}\n\n`);
+            }
+        });
+    } catch (error) {
+        console.error("Error in streaming endpoint:", error);
         return c.json(
             {
                 success: false,
