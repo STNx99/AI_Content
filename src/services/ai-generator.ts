@@ -115,7 +115,7 @@ export async function generateContent(
 ): Promise<string> {
     const { prompt, context, tone = "professional", length = "medium", includeImages = true } = options;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const imageInstruction = includeImages
         ? `- Đánh dấu vị trí cần chèn ảnh bằng [IMAGE_PLACEHOLDER_N] (N là số thứ tự 1, 2, 3...)
@@ -188,7 +188,7 @@ export async function* generateContentStream(
 ): AsyncGenerator<{ type: 'chunk' | 'done' | 'error'; content?: string; error?: string }> {
     const { prompt, context, tone = "professional", length = "medium", includeImages = true } = options;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const imageInstruction = includeImages
         ? `- Đánh dấu vị trí cần chèn ảnh bằng [IMAGE_PLACEHOLDER_N] (N là số thứ tự 1, 2, 3...)
