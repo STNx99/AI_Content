@@ -5,12 +5,19 @@ import { generateContent, generateContentStream } from "./services/ai-generator"
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { stream } from "hono/streaming";
 
+// Initialize the Hono application
 const app = new Hono();
 
+// Apply CORS and request logging middleware to all routes
 app.use("*", cors());
 app.use("*", logger());
 
-// Generate content endpoint
+/**
+ * POST /api/v1/ai/generate-content
+ * Generates HTML content using the Gemini AI model.
+ * Accepts a JSON body with: prompt (required), context, tone, length, includeImages.
+ * Returns the generated HTML content as a JSON response.
+ */
 app.post("/api/v1/ai/generate-content", async (c) => {
     try {
         const body = await c.req.json();
@@ -41,7 +48,13 @@ app.post("/api/v1/ai/generate-content", async (c) => {
     }
 });
 
-// Streaming endpoint with Server-Sent Events
+/**
+ * POST /api/v1/ai/generate-content-stream
+ * Streams HTML content generation using Server-Sent Events (SSE).
+ * Accepts a JSON body with: prompt (required), context, tone, length, includeImages.
+ * Yields 'chunk' events with partial content, a 'done' event with the final result,
+ * and an 'error' event if generation fails.
+ */
 app.post("/api/v1/ai/generate-content-stream", async (c) => {
     try {
         const body = await c.req.json();
@@ -52,7 +65,7 @@ app.post("/api/v1/ai/generate-content-stream", async (c) => {
         }
 
         return stream(c, async (stream) => {
-            // Set headers for SSE
+            // Set SSE headers so the client can receive streamed events
             c.header("Content-Type", "text/event-stream");
             c.header("Cache-Control", "no-cache");
             c.header("Connection", "keep-alive");
@@ -93,10 +106,12 @@ app.post("/api/v1/ai/generate-content-stream", async (c) => {
     }
 });
 
+// Use the PORT environment variable or fall back to 3001
 const port = process.env.PORT || 3001;
 
 console.log(`🚀 AI Service running on http://localhost:${port}`);
 
+// Export the app for Bun's HTTP server
 export default {
     port,
     fetch: app.fetch,
