@@ -1,7 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Initialize Google Generative AI client using the API key from environment variables
 const genAI = new GoogleGenerativeAI(process.env.CMS_AI_API_KEY!);
 
+/**
+ * Options for content generation
+ */
 interface GenerateContentOptions {
     prompt: string;
     context?: string;
@@ -10,6 +14,7 @@ interface GenerateContentOptions {
     includeImages?: boolean;
 }
 
+// Maps tone values to Vietnamese writing style instructions for the AI prompt
 const toneInstructions: Record<string, string> = {
     professional: "Viết với giọng chuyên nghiệp, trang trọng.",
     casual: "Viết với giọng thân thiện, gần gũi.",
@@ -17,12 +22,19 @@ const toneInstructions: Record<string, string> = {
     friendly: "Viết với giọng thân thiện, vui vẻ."
 };
 
+// Maps length values to Vietnamese writing length instructions for the AI prompt
 const lengthInstructions: Record<string, string> = {
     short: "Viết ngắn gọn, súc tích.",
     medium: "Viết với độ dài trung bình.",
     long: "Viết chi tiết, đầy đủ."
 };
 
+/**
+ * Retries an async function with exponential backoff on failure.
+ * @param fn - The async function to retry
+ * @param retries - Maximum number of retry attempts (default: 3)
+ * @param delay - Delay in milliseconds between retries (default: 1000ms)
+ */
 async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
     let attempt = 0;
     while (attempt < retries) {
@@ -40,6 +52,13 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 3, delay = 10
     throw new Error("Max retries reached");
 }
 
+/**
+ * Extracts relevant keywords from a prompt for use in image searches.
+ * Prioritizes quoted terms (e.g. "product name") as they represent main subjects.
+ * Falls back to filtering out Vietnamese stop words from the remaining text.
+ * @param prompt - The content generation prompt to extract keywords from
+ * @returns An array of up to 5 keywords
+ */
 async function extractKeywords(prompt: string): Promise<string[]> {
     // First, extract terms in quotes - these are products or main subjects for images
     const quotedTerms: string[] = [];
@@ -71,6 +90,13 @@ async function extractKeywords(prompt: string): Promise<string[]> {
     return words.length > 0 ? words : ['technology', 'business'];
 }
 
+/**
+ * Searches for landscape images on Unsplash matching the given keywords.
+ * Requires the UNSPLASH_ACCESS_KEY environment variable to be set.
+ * @param keywords - Space-separated search keywords
+ * @param count - Number of images to retrieve
+ * @returns An array of image URLs, or an empty array if the search fails
+ */
 async function searchImages(keywords: string, count: number): Promise<string[]> {
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
 
@@ -110,6 +136,13 @@ async function searchImages(keywords: string, count: number): Promise<string[]> 
     }
 }
 
+/**
+ * Generates HTML content using the Gemini AI model.
+ * Optionally fetches and embeds relevant images from Unsplash into the output.
+ * @param options - Content generation options (prompt, tone, length, etc.)
+ * @returns A string of clean HTML content
+ * @throws If the Gemini API call fails after all retries
+ */
 export async function generateContent(
     options: GenerateContentOptions
 ): Promise<string> {
@@ -182,7 +215,13 @@ ${imageInstruction}
     }
 }
 
-// Stream content generation with real-time updates
+/**
+ * Streams HTML content generation from the Gemini AI model in real-time.
+ * Yields partial content chunks as they arrive, then yields a final 'done' event
+ * with images embedded. Yields an 'error' event if the generation fails.
+ * @param options - Content generation options (prompt, tone, length, etc.)
+ * @yields Objects with a `type` of 'chunk', 'done', or 'error', along with content or error message
+ */
 export async function* generateContentStream(
     options: GenerateContentOptions
 ): AsyncGenerator<{ type: 'chunk' | 'done' | 'error'; content?: string; error?: string }> {
